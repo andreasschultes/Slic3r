@@ -239,6 +239,11 @@ GCodeWriter::need_toolchange(unsigned int extruder_id) const
     return (this->_extruder == NULL) || (this->_extruder->id != extruder_id);
 }
 
+bool GCodeWriter::is_first_use_of_tool(unsigned int extruder_id) const
+{
+    return (this->_extruder == NULL);
+}
+
 std::string
 GCodeWriter::set_extruder(unsigned int extruder_id)
 {
@@ -411,6 +416,7 @@ GCodeWriter::retract()
         this->_extruder->retract_length(),
         this->_extruder->retract_restart_extra(),
         "retract"
+	,false
     );
 }
 
@@ -420,12 +426,13 @@ GCodeWriter::retract_for_toolchange()
     return this->_retract(
         this->_extruder->retract_length_toolchange(),
         this->_extruder->retract_restart_extra_toolchange(),
-        "retract for toolchange"
+        "retract for toolchange",
+	true
     );
 }
 
 std::string
-GCodeWriter::_retract(double length, double restart_extra, const std::string &comment)
+GCodeWriter::_retract(double length, double restart_extra, const std::string &comment, bool is_long)
 {
     std::ostringstream gcode;
     
@@ -447,9 +454,14 @@ GCodeWriter::_retract(double length, double restart_extra, const std::string &co
         if (this->config.use_firmware_retraction) {
             if (FLAVOR_IS(gcfMachinekit))
                 gcode << "G22 ; retract\n";
-            else
-                gcode << "G10 ; retract\n";
-        } else {
+            else{
+                if(!is_long)
+                   gcode << "G10 ; retract\n";
+                else
+                   gcode << "G10 S1 ; long retract\n";
+            }
+        } 
+        else {
             gcode << "G1 " << this->_extrusion_axis << E_NUM(this->_extruder->E)
                            << " F" << this->_extruder->retract_speed_mm_min;
             COMMENT(comment);
@@ -466,6 +478,18 @@ GCodeWriter::_retract(double length, double restart_extra, const std::string &co
 std::string
 GCodeWriter::unretract()
 {
+    return _unretract(false);
+}
+
+std::string
+GCodeWriter::unretract_after_toolchange()
+{
+    return _unretract(true);
+}
+
+std::string
+GCodeWriter::_unretract(bool is_long)
+{
     std::ostringstream gcode;
     
     if (FLAVOR_IS(gcfMakerWare))
@@ -476,8 +500,12 @@ GCodeWriter::unretract()
         if (this->config.use_firmware_retraction) {
             if (FLAVOR_IS(gcfMachinekit))
                  gcode << "G23 ; unretract\n";
-            else
-                 gcode << "G11 ; unretract\n";
+            else{
+                if(!is_long)
+                    gcode << "G11 ; unretract\n";
+                else
+                    gcode << "G11 S1 ; unretract after tool_change\n";
+            }
             gcode << this->reset_e();
         } else {
             // use G1 instead of G0 because G0 will blend the restart with the previous travel move

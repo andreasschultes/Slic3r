@@ -202,7 +202,7 @@ Wipe::wipe(GCode &gcodegen, bool toolchange)
 GCode::GCode()
     : placeholder_parser(NULL), enable_loop_clipping(true), enable_cooling_markers(false), layer_count(0),
         layer_index(-1), layer(NULL), first_layer(false), elapsed_time(0.0), volumetric_speed(0),
-        _last_pos_defined(false)
+        _last_pos_defined(false),_next_retract_is_after_toolchange(false)
 {
 }
 
@@ -504,7 +504,12 @@ GCode::_extrude(ExtrusionPath path, std::string description, double speed)
     }
     
     // compensate retraction
-    gcode += this->unretract();
+    if(_next_retract_is_after_toolchange){
+        gcode += this->unretract_after_toolchange();
+        _next_retract_is_after_toolchange=false;
+    }
+    else
+        gcode += this->unretract();
     
     // adjust acceleration
     {
@@ -715,6 +720,15 @@ GCode::unretract()
 }
 
 std::string
+GCode::unretract_after_toolchange()
+{
+    std::string gcode;
+    gcode += this->writer.unlift();
+    gcode += this->writer.unretract_after_toolchange();
+    return gcode;
+}
+
+std::string
 GCode::set_extruder(unsigned int extruder_id)
 {
     this->placeholder_parser->set("current_extruder", extruder_id);
@@ -725,9 +739,14 @@ GCode::set_extruder(unsigned int extruder_id)
     if (!this->writer.multiple_extruders) {
         return this->writer.toolchange(extruder_id);
     }
-    
+    std::string gcode;
     // prepend retraction on the current extruder
-    std::string gcode = this->retract(true);
+    if(!this->writer.is_first_use_of_tool(extruder_id)){
+        gcode = this->retract(true);
+        this->_next_retract_is_after_toolchange=true;
+    }
+    else
+        gcode = this->retract(false);
     
     // append custom toolchange G-code
     if (this->writer.extruder() != NULL && !this->config.toolchange_gcode.value.empty()) {

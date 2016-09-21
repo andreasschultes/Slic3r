@@ -31,6 +31,7 @@ class GCodeWriter {
     std::string set_acceleration(unsigned int acceleration);
     std::string reset_e(bool force = false);
     std::string update_progress(unsigned int num, unsigned int tot, bool allow_100 = false) const;
+    bool is_first_use_of_tool(unsigned int extruder_id) const;
     bool need_toolchange(unsigned int extruder_id) const;
     std::string set_extruder(unsigned int extruder_id);
     std::string toolchange(unsigned int extruder_id);
@@ -44,6 +45,7 @@ class GCodeWriter {
     std::string retract();
     std::string retract_for_toolchange();
     std::string unretract();
+	std::string unretract_after_toolchange();
     std::string lift();
     std::string unlift();
     Pointf3 get_position() const;
@@ -57,7 +59,8 @@ class GCodeWriter {
     Pointf3 _pos;
     
     std::string _travel_to_z(double z, const std::string &comment);
-    std::string _retract(double length, double restart_extra, const std::string &comment);
+    std::string _retract(double length, double restart_extra, const std::string &comment,bool is_long);
+	std::string _unretract(bool is_toolchange);
 };
 
 }

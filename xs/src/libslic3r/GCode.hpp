@@ -101,6 +101,7 @@ class GCode {
     bool needs_retraction(const Polyline &travel, ExtrusionRole role = erNone);
     std::string retract(bool toolchange = false);
     std::string unretract();
+    std::string unretract_after_toolchange();
     std::string set_extruder(unsigned int extruder_id);
     Pointf point_to_gcode(const Point &point);
     
@@ -108,6 +109,7 @@ class GCode {
     Point _last_pos;
     bool _last_pos_defined;
     std::string _extrude(ExtrusionPath path, std::string description = "", double speed = -1);
+    bool _next_retract_is_after_toolchange;
 };
 
 }
